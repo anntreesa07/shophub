@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShopHub - Final with Edit + Image Change</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+  body{background:#f5f5f5;font-family:Arial,sans-serif}
+  .card{transition:all .3s;border-radius:15px;box-shadow:0 5px 15px rgba(0,0,0,.1)}
+  .card:hover{transform:translateY(-10px);box-shadow:0 15px 30px rgba(0,0,0,.2)}
+  .btn-primary{background:#6a1b9a;border:none;border-radius:50px}
+  .snackbar{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#333;color:white;padding:15px 30px;border-radius:50px;z-index:9999}
+  .preview{max-height:200px;border-radius:10px;margin-top:10px}
+</style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow">
+  <div class="container">
+    <a class="navbar-brand fw-bold fs-4" href="#">ShopHub</a>
+    <div class="navbar-nav ms-auto">
+      <a class="nav-link" href="#" onclick="show('home')">Home</a>
+      <a class="nav-link" href="#" onclick="show('shop')">Shop</a>
+      <a class="nav-link" id="addBtn" style="display:none" href="#" onclick="show('add')">Add Product</a>
+      <a class="nav-link" href="#" onclick="show('cart')">Cart (<span id="cnt">0</span>)</a>
+      <a class="nav-link" id="logout" style="display:none" href="#" onclick="logout()">Logout</a>
+      <a class="nav-link" id="loginBtn" href="#" onclick="show('login')">Login</a>
+    </div>
+    <p>
+      Shopping site 
+    </p>
+  </div>
+</nav>
+
+<div class="container mt-4">
+
+  <div id="home" class="page text-center py-5 bg-white rounded shadow">
+    <h1 class="display-5 text-primary">Welcome to ShopHub</h1>
+    <button class="btn btn-primary btn-lg mt-3" onclick="show('shop')">Start Shopping</button>
+  </div>
+
+  <div id="login" class="page" style="display:none;max-width:400px;margin:auto">
+    <div class="card shadow p-4">
+      <h3>Login</h3>
+      <input id="lemail" class="form-control mb-3" placeholder="Email" value="admin@gmail.com">
+      <input id="lpass" class="form-control mb-3" type="password" placeholder="Password" value="admin123">
+      <button class="btn btn-primary w-100" onclick="login()">Login</button>
+    </div>
+  </div>
+
+  <div id="shop" class="page" style="display:none">
+    <h2 class="mb-4">Products</h2>
+    <div class="row" id="plist"></div>
+  </div>
+
+  <!-- ADD PRODUCT -->
+  <div id="add" class="page" style="display:none;max-width:500px;margin:auto">
+    <div class="card shadow p-4">
+      <h3>Add Product</h3>
+      <input id="aname" class="form-control mb-3" placeholder="Name">
+      <input id="aprice" type="number" class="form-control mb-3" placeholder="Price">
+      <input id="adesc" class="form-control mb-3" placeholder="Description">
+      <input type="file" id="aimg" accept="image/*" class="form-control mb-3">
+      <img id="prev1" class="preview img-fluid shadow" src="" alt="Preview">
+      <button class="btn btn-success w-100 mt-3" onclick="addProduct()">Add</button>
+    </div>
+  </div>
+
+  <!-- EDIT PRODUCT - FULLY WORKING + CHANGE IMAGE -->
+  <div id="edit" class="page" style="display:none;max-width:500px;margin:auto">
+    <div class="card shadow p-4">
+      <h3>Edit Product</h3>
+      <input type="hidden" id="editId">
+      <input id="ename" class="form-control mb-3" placeholder="Name">
+      <input id="eprice" type="number" class="form-control mb-3" placeholder="Price">
+      <input id="edesc" class="form-control mb-3" placeholder="Description">
+      <p>Current Image:</p>
+      <img id="currentImg" class="img-fluid shadow mb-3" style="max-height:180px">
+      <p>Change Image (optional):</p>
+      <input type="file" id="eimg" accept="image/*" class="form-control mb-3">
+      <img id="eprev" class="preview img-fluid shadow" src="" alt="New Preview">
+      <button class="btn btn-warning w-100 mt-3" onclick="updateProduct()">Update Product</button>
+    </div>
+  </div>
+
+  <div id="cart" class="page" style="display:none">
+    <h2>Cart</h2>
+    <div id="citems"></div>
+    <h4 class="text-end mt-4">Total: $<span id="total">0</span></h4>
+  </div>
+</div>
+
+<div id="snackbar"></div>
+
+<script>
+// Default data
+if(!localStorage.getItem('products')) localStorage.setItem('products', JSON.stringify([
+  {id:1,name:"iPhone 15 Pro",price:999,description:"Latest iPhone",imagename:"https://i.ibb.co/0jZ3Y3K/iphone15.jpg"},
+  {id:2,name:"Samsung S24 Ultra",price:1199,description:"Best Android",imagename:"https://i.ibb.co/4p7Y7Y4/s24.jpg"},
+  {id:3,name:"MacBook Pro M3",price:2399,description:"Powerful laptop",imagename:"https://i.ibb.co/0qK7Y9Z/macbook.jpg"}
+]));
+if(!localStorage.getItem('users')) localStorage.setItem('users', JSON.stringify([{email:"admin@gmail.com",password:"admin123"}]));
+if(!localStorage.getItem('cart')) localStorage.setItem('cart','[]');
+
+// Image preview
+document.getElementById('aimg').onchange = e => { if(e.target.files[0]) readImg(e.target.files[0], 'prev1'); };
+document.getElementById('eimg').onchange = e => { if(e.target.files[0]) readImg(e.target.files[0], 'eprev'); };
+function readImg(file, id) {
+  let r = new FileReader();
+  r.onload = x => { document.getElementById(id).src = x.target.result; document.getElementById(id).style.display = 'block'; };
+  r.readAsDataURL(file);
+}
+
+function show(p) { document.querySelectorAll('.page').forEach(x=>x.style.display='none'); document.getElementById(p).style.display='block'; if(p==='shop')loadProducts(); if(p==='cart')loadCart(); checkAuth(); }
+function checkAuth() { let u=localStorage.getItem('loggedInUser'); document.getElementById('loginBtn').style.display=u?'none':'block'; document.getElementById('logout').style.display=u?'block':'none'; document.getElementById('addBtn').style.display=(u==='admin@gmail.com')?'block':'none'; count(); }
+function snackbar(m) { let s=document.getElementById('snackbar'); s.textContent=m; s.style.display='block'; setTimeout(()=>s.style.display='none',3000); }
+function count() { let c=JSON.parse(localStorage.getItem('cart')||'[]'); document.getElementById('cnt').textContent=c.reduce((a,x)=>a+x.qty,0); }
+
+function login() {
+  let e=document.getElementById('lemail').value, p=document.getElementById('lpass').value;
+  let users=JSON.parse(localStorage.getItem('users'));
+  if(users.find(x=>x.email===e && x.password===p)) { localStorage.setItem('loggedInUser',e); snackbar("Login Success"); show('home'); }
+  else snackbar("Wrong email/password");
+}
+
+function logout() { localStorage.removeItem('loggedInUser'); show('login'); }
+
+function loadProducts() {
+  let prods=JSON.parse(localStorage.getItem('products'));
+  let admin=localStorage.getItem('loggedInUser')==='admin@gmail.com';
+  document.getElementById('plist').innerHTML=prods.map(p=>`
+    <div class="col-md-4 mb-4">
+      <div class="card h-100">
+        <img src="${p.imagename}" class="card-img-top" style="height:200px;object-fit:cover">
+        <div class="card-body d-flex flex-column">
+          <h5>${p.name}</h5>
+          <p class="text-muted">${p.description}</p>
+          <h4 class="text-primary">$ ${p.price}</h4>
+          <button class="btn btn-primary mt-auto" onclick="addToCart(${p.id})">Add to Cart</button>
+          ${admin?`<div class="mt-2">
+            <button class="btn btn-warning btn-sm" onclick="editProduct(${p.id})">Edit</button>
+            <button class="btn btn-danger btn-sm ms-2" onclick="del(${p.id})">Delete</button>
+          </div>`:''}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function addProduct() {
+  let n=document.getElementById('aname').value, pr=+document.getElementById('aprice').value, d=document.getElementById('adesc').value, f=document.getElementById('aimg').files[0];
+  if(!n||!pr||!d||!f) return snackbar("Fill all fields + select image");
+  let r=new FileReader();
+  r.onload=x=>{
+    let prods=JSON.parse(localStorage.getItem('products'));
+    prods.push({id:Date.now(),name:n,price:pr,description:d,imagename:x.target.result});
+    localStorage.setItem('products',JSON.stringify(prods));
+    snackbar("Added!"); show('shop');
+  };
+  r.readAsDataURL(f);
+}
+
+// EDIT PRODUCT - YOU CAN CHANGE IMAGE TOO!
+function editProduct(id) {
+  let prods=JSON.parse(localStorage.getItem('products'));
+  let p=prods.find(x=>x.id===id);
+  document.getElementById('editId').value=p.id;
+  document.getElementById('ename').value=p.name;
+  document.getElementById('eprice').value=p.price;
+  document.getElementById('edesc').value=p.description;
+  document.getElementById('currentImg').src=p.imagename;
+  document.getElementById('eprev').style.display='none';
+  show('edit');
+}
+
+function updateProduct() {
+  let id=+document.getElementById('editId').value;
+  let n=document.getElementById('ename').value, pr=+document.getElementById('eprice').value, d=document.getElementById('edesc').value;
+  let newImgFile=document.getElementById('eimg').files[0];
+  
+  if(!n||!pr||!d) return snackbar("Fill all fields");
+
+  if(newImgFile) {
+    let r=new FileReader();
+    r.onload=x=>{
+      saveUpdatedProduct(id, n, pr, d, x.target.result);
+    };
+    r.readAsDataURL(newImgFile);
+  } else {
+    let prods=JSON.parse(localStorage.getItem('products'));
+    let oldImg=prods.find(x=>x.id===id).imagename;
+    saveUpdatedProduct(id, n, pr, d, oldImg);
+  }
+}
+
+function saveUpdatedProduct(id, name, price, desc, img) {
+  let prods=JSON.parse(localStorage.getItem('products'));
+  prods=prods.map(p=>p.id===id?{...p,name,price,description:desc,imagename:img}:p);
+  localStorage.setItem('products',JSON.stringify(prods));
+  snackbar("Product Updated!");
+  show('shop');
+}
+
+function del(id) {
+  if(confirm("Delete this product?")) {
+    let prods=JSON.parse(localStorage.getItem('products')).filter(x=>x.id!==id);
+    localStorage.setItem('products',JSON.stringify(prods));
+    loadProducts();
+  }
+}
+
+function addToCart(id) {
+  let cart=JSON.parse(localStorage.getItem('cart')||'[]');
+  let prod=JSON.parse(localStorage.getItem('products')).find(x=>x.id===id);
+  let ex=cart.find(x=>x.id===id);
+  if(ex) ex.qty++; else cart.push({...prod,qty:1});
+  localStorage.setItem('cart',JSON.stringify(cart));
+  count(); snackbar("Added to cart!");
+}
+
+function loadCart() {
+  let cart=JSON.parse(localStorage.getItem('cart')||'[]');
+  if(cart.length===0) { document.getElementById('citems').innerHTML="<p>Cart is empty</p>"; document.getElementById('total').textContent="0"; return; }
+  document.getElementById('citems').innerHTML=cart.map(i=>`
+    <div class="card mb-3"><div class="row g-0">
+      <div class="col-3"><img src="${i.imagename}" class="img-fluid" style="height:100px"></div>
+      <div class="col-9"><div class="card-body">
+        <h5>${i.name} × ${i.qty}</h5>
+        <h5>$ ${(i.price*i.qty).toFixed(2)}</h5>
+        <button class="btn btn-danger btn-sm" onclick="removeFromCart(${i.id})">Remove</button>
+      </div></div>
+    </div></div>
+  `).join('');
+  document.getElementById('total').textContent=cart.reduce((a,x)=>a+x.price*x.qty,0).toFixed(2);
+}
+
+function removeFromCart(id) {
+  let cart=JSON.parse(localStorage.getItem('cart')).filter(x=>x.id!==id);
+  localStorage.setItem('cart',JSON.stringify(cart));
+  loadCart(); count();
+}
+
+checkAuth(); show('home');
+</script>
+</body>
+</html>
